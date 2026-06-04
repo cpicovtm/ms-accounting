@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Cuenta contable — nodo del plan de cuentas.
+/// isDetail = true → cuenta de movimiento (imputable).
+/// isDetail = false → cuenta sumarizadora / de grupo.
+model Account {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique @db.VarChar(20)
+  name        String   @db.VarChar(150)
+  parentId    String?  @map("parent_id") @db.Uuid
+  level       Int      @db.SmallInt
+  accountType String   @map("account_type") @db.VarChar(20)
+  nature      String   @db.VarChar(10)
+  isDetail    Boolean  @default(false) @map("is_detail")
+  isActive    Boolean  @default(true) @map("is_active")
+  description String?  @db.VarChar(500)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy   String?  @map("created_by") @db.Uuid
+  updatedBy   String?  @map("updated_by") @db.Uuid
+
+  // Auto-referencia para la jerarquía
+  parent   Account?  @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children Account[] @relation("AccountHierarchy")
+
+  // Relación con auditoría
+  auditLogs AccountAuditLog[]
+
+  @@index([parentId], name: "idx_account_parent_id")
+  @@index([code], name: "idx_account_code")
+  @@index([accountType], name: "idx_account_type")
+  @@index([isActive], name: "idx_account_is_active")
+  @@map("account")
+}
+
+/// Registro de auditoría — append-only.
+model AccountAuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  accountId    String   @map("account_id") @db.Uuid
+  action       String   @db.VarChar(20)
+  fieldChanged String?  @map("field_changed") @db.VarChar(50)
+  oldValue     String?  @map("old_value") @db.Text
+  newValue     String?  @map("new_value") @db.Text
+  changedBy    String?  @map("changed_by") @db.Uuid
+  changedAt    DateTime @default(now()) @map("changed_at") @db.Timestamptz
+
+  account Account @relation(fields: [accountId], references: [id])
+
+  @@index([accountId], name: "idx_audit_account_id")
+  @@index([action], name: "idx_audit_action")
+  @@map("account_audit_log")
+}

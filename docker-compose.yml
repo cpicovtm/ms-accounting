@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ms-accounting-db
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: accounting
+      POSTGRES_USER: accounting
+      POSTGRES_PASSWORD: accounting_dev
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U accounting"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:
